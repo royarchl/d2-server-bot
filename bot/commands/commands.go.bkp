@@ -1,0 +1,211 @@
+// package commands
+//
+// import (
+// 	"fmt"
+// 	"log"
+//
+// 	"github.com/bwmarrin/discordgo"
+// )
+//
+// var (
+// 	dmPermission                   = false
+// 	defaultMemberPermissions int64 = discordgo.PermissionManageGuild
+//
+// 	raidChoices = []*discordgo.ApplicationCommandOptionChoice{
+// 		{Name: "Last Wish", Value: "0000000000000000001"},
+// 		{Name: "Garden of Salvation", Value: "0000000000000000002"},
+// 		{Name: "Deep Stone Crypt", Value: "0000000000000000003"},
+// 		{Name: "Vault of Glass", Value: "0000000000000000004"},
+// 		{Name: "Vow of the Disciple", Value: "0000000000000000005"},
+// 		{Name: "King's Fall", Value: "0000000000000000006"},
+// 		{Name: "Root of Nightmare", Value: "0000000000000000007"},
+// 		{Name: "Crota's End", Value: "0000000000000000008"},
+// 		{Name: "Salvation's Edge", Value: "0000000000000000009"},
+// 		{Name: "The Desert Perpetual", Value: "0000000000000000010"},
+// 	}
+//
+// 	commands = []*discordgo.ApplicationCommand{
+// 		{
+// 			Name:        "roster",
+// 			Description: "Manage raid rosters",
+// 			Options: []*discordgo.ApplicationCommandOption{
+// 				// Option 1: /roster create
+// 				{
+// 					Name:        "create",
+// 					Description: "Create a new raid roster",
+// 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+// 					Options: []*discordgo.ApplicationCommandOption{
+// 						{
+// 							Name:        "raid",
+// 							Description: "Choose a raid to create a roster for",
+// 							Type:        discordgo.ApplicationCommandOptionString,
+// 							Required:    true,
+// 							Choices:     raidChoices,
+// 						},
+// 					},
+// 				},
+// 				// Option 2: /roster view
+// 				{
+// 					Name:        "view",
+// 					Description: "View an existing raid roster",
+// 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+// 					Options: []*discordgo.ApplicationCommandOption{
+// 						{
+// 							Name:        "raid",
+// 							Description: "Choose a raid to create a roster for",
+// 							Type:        discordgo.ApplicationCommandOptionString,
+// 							Required:    true,
+// 							Choices:     raidChoices,
+// 						},
+// 					},
+// 				},
+// 				// Option 3: /roster edit ...
+// 				{
+// 					Name:        "edit",
+// 					Description: "Edit an existing raid roster",
+// 					Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+// 					Options: []*discordgo.ApplicationCommandOption{
+// 						{
+// 							Name:        "leader",
+// 							Description: "Change the raid leader",
+// 							Type:        discordgo.ApplicationCommandOptionSubCommand,
+// 							Options: []*discordgo.ApplicationCommandOption{
+// 								{
+// 									Name:        "raid",
+// 									Description: "The raid to modify",
+// 									Type:        discordgo.ApplicationCommandOptionString,
+// 									Required:    true,
+// 									Choices:     raidChoices,
+// 								},
+// 								{
+// 									Name:        "user",
+// 									Description: "The new leader",
+// 									Type:        discordgo.ApplicationCommandOptionUser,
+// 									Required:    true,
+// 								},
+// 							},
+// 						},
+// 						{
+// 							Name:        "reserve",
+// 							Description: "Choose a user to reserve a raid position for",
+// 							Type:        discordgo.ApplicationCommandOptionSubCommand,
+// 							Options: []*discordgo.ApplicationCommandOption{
+// 								{
+// 									Name:        "raid",
+// 									Description: "The raid to reserve the user for",
+// 									Type:        discordgo.ApplicationCommandOptionString,
+// 									Required:    true,
+// 									Choices:     raidChoices,
+// 								},
+// 								{
+// 									Name:        "user",
+// 									Description: "The user to reserve",
+// 									Type:        discordgo.ApplicationCommandOptionUser,
+// 									Required:    true,
+// 								},
+// 							},
+// 						},
+// 					},
+// 				},
+// 				// Option 4: /roster notify
+// 				{
+// 					Name:        "notify",
+// 					Description: "Notify roster members about raid starting",
+// 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+// 					Options: []*discordgo.ApplicationCommandOption{
+// 						{
+// 							Name:        "raid",
+// 							Description: "Choose a raid to notify",
+// 							Type:        discordgo.ApplicationCommandOptionString,
+// 							Required:    true,
+// 							Choices:     raidChoices,
+// 						},
+// 						{
+// 							Name:        "message",
+// 							Description: "An announcement message (optional)",
+// 							Type:        discordgo.ApplicationCommandOptionString,
+// 							Required:    false,
+// 						},
+// 					},
+// 				},
+// 				// Option 5: /roster complete
+// 				{
+// 					Name:        "complete",
+// 					Description: "Mark a raid as completed. (WARNING! DESTROYS ROSTER)",
+// 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+// 					Options: []*discordgo.ApplicationCommandOption{
+// 						{
+// 							Name:        "raid",
+// 							Description: "Choose a raid to mark as completed",
+// 							Type:        discordgo.ApplicationCommandOptionString,
+// 							Required:    true,
+// 							Choices:     raidChoices,
+// 						},
+// 					},
+// 				},
+// 			},
+// 		},
+// 		{
+// 			Name: "rotation",
+// 		},
+// 	}
+//
+// 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+// 		"roster": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// 			options := i.ApplicationCommandData().Options
+// 			if len(options) == 0 {
+// 				return
+// 			}
+//
+// 			subcommand := options[0]
+// 			var response string
+//
+// 			switch subcommand.Name {
+// 			case "create":
+// 				raidId := subcommand.Options[0].StringValue()
+// 				response = fmt.Sprintf("Creating roster for raid ID: %s", raidId)
+// 			case "edit":
+// 				subcommandOptions := subcommand.Options[0]
+//
+// 				raidId := subcommandOptions.Options[0].StringValue()
+// 				targetUser := subcommandOptions.Options[1].UserValue(s)
+//
+// 				switch subcommandOptions.Name {
+// 				case "leader":
+// 					response = fmt.Sprintf("Setting %s as leader for raid %s", targetUser.Mention(), raidId)
+// 				case "reserve":
+// 					response = fmt.Sprintf("Reserving a spot for %s in raid %s", targetUser.Mention(), raidId)
+// 				}
+// 			}
+//
+// 			// choice := i.ApplicationCommandData().Options[0].Options[0].StringValue()
+//
+// 			// MODIFY THIS COMMAND TO ACCOUNT FOR THE VARIOUS SUBCOMMANDS!!
+//
+// 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+// 				Type: discordgo.InteractionResponseChannelMessageWithSource,
+// 				Data: &discordgo.InteractionResponseData{
+// 					Content: response,
+// 				},
+// 			})
+//
+// 		},
+// 	}
+// )
+//
+// func SetCommands(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+// 	if handler, ok := commandHandlers[interaction.ApplicationCommandData().Name]; ok {
+// 		handler(session, interaction)
+// 	}
+// }
+//
+// func RegisterCommands(s *discordgo.Session) {
+// 	for _, v := range commands {
+// 		// guildID := os.Getenv("GUILD_ID")
+// 		guildID := "1547702601473196214"
+// 		_, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, v)
+// 		if err != nil {
+// 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+// 		}
+// 	}
+// }
