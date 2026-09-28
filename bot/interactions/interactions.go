@@ -3,7 +3,6 @@ package interactions
 import (
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -11,14 +10,12 @@ import (
 )
 
 var guildCommandIds []string
-var GuildId = os.Getenv("GUILD_ID")
+var GuildId string
+var RolesChannelId string
 
 func RegisterInteractions(s *discordgo.Session) {
 	registerHandlers(s)
 	registerCommands(s)
-
-	// NOTE: Temporary
-	// generateRosterMessage("", "")
 }
 
 func DeregisterCommands(s *discordgo.Session) {
@@ -135,23 +132,20 @@ func generateRosterMessage(raid_name string) string {
 
 	sb.WriteString("-# _ _\n-# _ _\n**Select an option:** ")
 
-	// // NOTE: Doesn't account for people who explicitly requested to be 'On Standby'
-	// limit := min(len(users), MAX_RAID_PARTICIPANTS)
-	// if limit > 0 {
-	// sb.WriteString("### -# _Participating Members_\n")
-	// for i, user := range users[:limit] {
-	// fmt.Fprintf(&sb, "%d. <@%s> %s\n", i, user.ID, applyExtraTag(user.Status))
-	// }
-	// }
-	//
-	// if len(users) > MAX_RAID_PARTICIPANTS {
-	// sb.WriteString("\n### -# _On Standby_")
-	// for _, user := range users[MAX_RAID_PARTICIPANTS:] {
-	// fmt.Fprintf(&sb, "- <@%s> %s\n", user.ID, applyExtraTag(user.Status))
-	// }
-	// }
-	//
-	// sb.WriteString("-# _ _\n-# _ _\n**Select an option:** ")
-
 	return sb.String()
+}
+
+func GenerateRolesMessage(s *discordgo.Session, roles map[string]bool, content string) error {
+	roleList, err := GetFilteredRoleList(s, roles)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	buttonComponents := GenerateRoleComponents(roleList)
+
+	_, err = s.ChannelMessageSendComplex(RolesChannelId, &discordgo.MessageSend{
+		Content:    content,
+		Components: buttonComponents,
+	})
+	return nil
 }

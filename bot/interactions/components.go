@@ -19,7 +19,7 @@ type RoleButton struct {
 // var roles []RoleButton
 // var RoleComponents []discordgo.MessageComponent
 
-var raidRoles = map[string]bool{
+var RaidRoles = map[string]bool{
 	"Forsaken":         true,
 	"Shadowkeep":       true,
 	"Beyond Light":     true,
@@ -32,21 +32,21 @@ var raidRoles = map[string]bool{
 	"Dungeon Pack":     true,
 }
 
-var timezoneRoles = map[string]bool{
-	"UTC+0 (GMT)": true,
+var TimezoneRoles = map[string]bool{
 	"UTC-8 (PST)": true,
 	"UTC-6 (CST)": true,
 	"UTC-5 (EST)": true,
+	"UTC+0 (GMT)": true,
 }
 
-var experienceRoles = map[string]bool{
+var ExperienceRoles = map[string]bool{
 	"Veteran":    true,
 	"New Player": true,
 }
 
 // NOTE: These will need to be called on startup, when generating the role messages.
 
-func getFilteredRoleList(s *discordgo.Session, accepted_roles map[string]bool) ([]RoleButton, error) {
+func GetFilteredRoleList(s *discordgo.Session, accepted_roles map[string]bool) ([]RoleButton, error) {
 	guildID := os.Getenv("GUILD_ID")
 
 	guildRoles, err := s.GuildRoles(guildID)
@@ -68,7 +68,7 @@ func getFilteredRoleList(s *discordgo.Session, accepted_roles map[string]bool) (
 	return filteredList, nil
 }
 
-func generateRoleComponents(roles []RoleButton) []discordgo.MessageComponent {
+func GenerateRoleComponents(roles []RoleButton) []discordgo.MessageComponent {
 	var rows []discordgo.MessageComponent
 	var currentRow []discordgo.MessageComponent
 
@@ -195,29 +195,16 @@ func handlerButton_rosterDecline(s *discordgo.Session, i *discordgo.InteractionC
 	}
 
 	rosterID, err := database.RosterQueryIdFromMessageId(i.Interaction.Message.ID)
-	// NOTE: Replace this with a command that deletes the user from the table.
 	err = database.RosterUserLeave(rosterID, i.Interaction.Member.User.ID)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	// err = database.RosterUserJoin(rosterID, i.Interaction.Member.User.ID, database.StatusStandby)
 	raidName, err := database.RosterQueryRaidNameFromId(rosterID)
 
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content: new(generateRosterMessage(raidName)),
 	})
-
-	// msg := fmt.Sprintf("%s DECLINE", i.Interaction.Message.Content)
-	// err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-	// Type: discordgo.InteractionResponseDeferredMessageUpdate,
-	// })
-	// if err != nil {
-	// panic(err)
-	// }
-	// s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-	// Content: &msg,
-	// })
 }
 
 func handlerButton_roleAssign(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -225,6 +212,13 @@ func handlerButton_roleAssign(s *discordgo.Session, i *discordgo.InteractionCrea
 	userID := i.Member.User.ID
 
 	err := s.GuildMemberRoleAdd(i.GuildID, userID, roleID)
+	if err != nil {
+		panic(err)
+	}
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	})
 	if err != nil {
 		panic(err)
 	}

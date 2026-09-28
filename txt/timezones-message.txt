@@ -1,0 +1,17 @@
+_ _
+> -# `⚠️ WARNING!`
+> These commands only work if the bot is actively online.
+_ _
+The following time matrix is to help you select a timezone role.
+-# _ _
+`  PST  ` `  CST  ` `  EST  ` `  GMT  `
+**`07:00PM`** `09:00PM` `10:00PM` `03:00AM`
+`05:00PM` **`07:00PM`** `08:00PM` `01:00AM`
+`04:00PM` `06:00PM` **`07:00PM`** `12:00AM`
+`11:00AM` `01:00PM` `02:00PM` **`07:00PM`**
+_ _
+I suspect everyone will select the role that correlates to the timezone they actually reside in, but I leave the door open to those that wish to raid at times earlier than their timezone prefers (eg. if you are in PST but wish to raid at `04:00PM`, you would select the EST role).
+
+-# NOTE:  This decision is not permanent and can be updated at any time by selecting a new timezone.
+-# _ _
+### Select an option:

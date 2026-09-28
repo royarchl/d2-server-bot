@@ -52,22 +52,7 @@ var commands = []*discordgo.ApplicationCommand{
 					},
 				},
 			},
-			// Option 2: /roster view
-			// {
-			// 	Name:        "view",
-			// 	Description: "View an existing raid roster",
-			// 	Type:        discordgo.ApplicationCommandOptionSubCommand,
-			// 	Options: []*discordgo.ApplicationCommandOption{
-			// 		{
-			// 			Name:        "raid",
-			// 			Description: "Choose a raid to create a roster for",
-			// 			Type:        discordgo.ApplicationCommandOptionString,
-			// 			Required:    true,
-			// 			Choices:     raidChoices,
-			// 		},
-			// 	},
-			// },
-			// Option 3: /roster edit ...
+			// Option 2: /roster edit
 			{
 				Name:        "edit",
 				Description: "Edit an existing raid roster",
@@ -115,7 +100,7 @@ var commands = []*discordgo.ApplicationCommand{
 					},
 				},
 			},
-			// Option 4: /roster notify
+			// Option 3: /roster notify
 			{
 				Name:        "notify",
 				Description: "Notify roster members about raid starting",
@@ -136,10 +121,25 @@ var commands = []*discordgo.ApplicationCommand{
 					},
 				},
 			},
-			// Option 5: /roster complete
+			// Option 4: /roster complete
 			{
 				Name:        "complete",
 				Description: "Mark a raid as completed. (WARNING! DESTROYS ROSTER)",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Name:        "raid",
+						Description: "Choose a raid to mark as completed",
+						Type:        discordgo.ApplicationCommandOptionString,
+						Required:    true,
+						Choices:     raidChoices,
+					},
+				},
+			},
+			// Option 5: /roster delete
+			{
+				Name:        "delete",
+				Description: "Delete an empty roster. (WARNING! DESTROYS ROSTER)",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Options: []*discordgo.ApplicationCommandOption{
 					{
@@ -206,8 +206,6 @@ func handlerCommand_roster(s *discordgo.Session, i *discordgo.InteractionCreate)
 	switch cmdPath {
 	case "create":
 		handlerSubCommand_rosterCreate(s, i, optMap)
-	// case "view":
-	// 	handlerSubCommand_rosterView(s, i, optMap)
 	case "edit leader":
 		handlerSubCommand_rosterEditLeader(s, i, optMap)
 	case "edit reserve":
@@ -216,19 +214,13 @@ func handlerCommand_roster(s *discordgo.Session, i *discordgo.InteractionCreate)
 		handlerSubCommand_rosterNotify(s, i, optMap)
 	case "complete":
 		handlerSubCommand_rosterComplete(s, i, optMap)
+	case "delete":
+		handlerSubCommand_rosterDelete(s, i, optMap)
 	}
 }
 
 func handlerSubCommand_rosterCreate(s *discordgo.Session, i *discordgo.InteractionCreate,
 	options map[string]*discordgo.ApplicationCommandInteractionDataOption) {
-
-	raidID := options["raid"].StringValue()
-	userID := i.Member.User.ID
-
-	var note string
-	if noteOpt, exists := options["note"]; exists {
-		note = noteOpt.StringValue()
-	}
 
 	var response *string
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -240,34 +232,31 @@ func handlerSubCommand_rosterCreate(s *discordgo.Session, i *discordgo.Interacti
 		})
 	}()
 
-	rosterID, err := database.RosterCreateDatabaseEntry(raidID, userID, note)
+	raidName := options["raid"].StringValue()
+	userID := i.Member.User.ID
+
+	var note string
+	if noteOpt, exists := options["note"]; exists {
+		note = noteOpt.StringValue()
+	}
+
+	rosterID, err := database.RosterCreateDatabaseEntry(raidName, userID, note)
 	if err != nil {
 		log.Println(err)
 		response = new("An active roster already exists for this raid.")
 		return
 	}
 
-	// NOTE: Should this call the addUser() here or within rosterCreate()?
-
-	// This should all be within the 'createRosterMessage()' function
 	// NOTE: Temporary channel reference
 	channelID := os.Getenv("RAID_CHANNEL_ID")
 	msg, err := s.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
-		Content:    generateRosterMessage(raidID),
+		Content:    generateRosterMessage(raidName),
 		Components: RosterComponents,
 	})
 
 	database.RosterUpdateMessageId(msg.ID, rosterID)
-	response = new(fmt.Sprintf("The roster (%s) has been created.", raidID))
+	response = new(fmt.Sprintf("The roster (%s) has been created.", raidName))
 }
-
-// func handlerSubCommand_rosterView(s *discordgo.Session, i *discordgo.InteractionCreate,
-// 	options map[string]*discordgo.ApplicationCommandInteractionDataOption) {
-//
-// 	raidID := options["raid"].StringValue()
-//
-// 	fmt.Printf("ID: %s\n", raidID)
-// }
 
 func handlerSubCommand_rosterEditLeader(s *discordgo.Session, i *discordgo.InteractionCreate,
 	options map[string]*discordgo.ApplicationCommandInteractionDataOption) {
@@ -305,14 +294,10 @@ func handlerSubCommand_rosterEditLeader(s *discordgo.Session, i *discordgo.Inter
 	})
 
 	response = new(fmt.Sprintf("The raid leader (%s) has been updated.", raidName))
-	// fmt.Printf("ID: %s; USER: %s\n", raidID, user)
 }
 
 func handlerSubCommand_rosterEditReserve(s *discordgo.Session, i *discordgo.InteractionCreate,
 	options map[string]*discordgo.ApplicationCommandInteractionDataOption) {
-
-	// raidID := options["raid"].StringValue()
-	// userID := options["user"].UserValue(s)
 
 	// NOTE: Creator should not be able to use on themselves.
 	// NOTE: Creator should not be able to add users not on the roster.
@@ -345,40 +330,47 @@ func handlerSubCommand_rosterEditReserve(s *discordgo.Session, i *discordgo.Inte
 		Components: &RosterComponents,
 	})
 
-	response = new(fmt.Sprintf("The raid leader (%s) has been updated.", raidName))
-
-	// raidID := options["raid"].StringValue() // Name
-	// user := options["user"].UserValue(s)
-	//
-	// roster, err := database.RosterQueryRowFromRaidName(raidID)
-	// if err != nil {
-	// log.Println(err)
-	// }
-	//
-	// err = database.RosterUserUpsert(roster.ID, user.ID, database.StatusReserved)
-	//
-	// channelID := os.Getenv("RAID_CHANNEL_ID")
-	// _, err = s.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
-	// Content:    generateRosterMessage(raidID),
-	// Components: RosterComponents,
-	// })
-	//
-	// fmt.Printf("ID: %s; USER: %s\n", raidID, userID)
+	response = new(fmt.Sprintf("The user has been reserved (%s).", raidName))
 }
 
 func handlerSubCommand_rosterNotify(s *discordgo.Session, i *discordgo.InteractionCreate,
 	options map[string]*discordgo.ApplicationCommandInteractionDataOption) {
 
-	raidID := options["raid"].StringValue()
-	message := options["message"].StringValue()
+	raidName := options["raid"].StringValue()
 
-	fmt.Printf("ID: %s; MSG: %s\n", raidID, message)
+	// NOTE: Necessary since the 'message' property can be null.
+	message := ""
+	if opt, ok := options["message"]; ok && opt != nil {
+		message = opt.StringValue()
+	}
+
+	roster, err := database.RosterQueryRowFromRaidName(raidName)
+	if err != nil {
+		log.Println(err)
+	}
+	users := database.RosterQueryUserIdsSorted(roster.ID)
+
+	// NOTE: I want to ping the top 6 slots, but it's complicated since the list
+	// is divided between two separate slices.
+	var sb strings.Builder
+	for _, user := range users.ActiveGroup {
+		fmt.Fprintf(&sb, "<@%s> ", user.ID)
+	}
+	sb.WriteString(message)
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: sb.String(),
+		},
+	})
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func handlerSubCommand_rosterComplete(s *discordgo.Session, i *discordgo.InteractionCreate,
 	options map[string]*discordgo.ApplicationCommandInteractionDataOption) {
-
-	raidID := options["raid"].StringValue()
 
 	var response *string
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -390,45 +382,72 @@ func handlerSubCommand_rosterComplete(s *discordgo.Session, i *discordgo.Interac
 		})
 	}()
 
-	rosterDbEntry, err := database.RosterQueryRowFromRaidName(raidID)
+	raidName := options["raid"].StringValue()
+
+	roster, err := database.RosterQueryRowFromRaidName(raidName)
 	if err != nil {
 		log.Println(err)
-		response = new(fmt.Sprintf("No active roster exists for the **%s** raid.", raidID))
+		response = new(fmt.Sprintf("No active roster exists for the **%s** raid.", raidName))
 		return
 	}
 
-	if i.Member.User.ID != rosterDbEntry.AuthorID {
+	if i.Member.User.ID != roster.AuthorID {
 		response = new("You don't have permission to make this change. Only the **roster creator** can mark a raid as completed.")
 		return
 	}
 
-	database.RosterArchive(rosterDbEntry.ID)
+	database.RosterArchive(roster.ID)
 
-	// Mark completions for raid participants
-	users := database.RosterQueryUserIdsSorted(rosterDbEntry.ID)
+	// Set completions for users
+	users := database.RosterQueryUserIdsSorted(roster.ID)
 	const MAX_RAID_PARTICIPANTS = 6
 
 	for _, user := range users.ActiveGroup {
-		database.MarkUserRaidCompletion(user.ID, raidID)
+		// NOTE: This should be one big transaction, instead of multiple writes.
+		database.MarkUserRaidCompletion(user.ID, raidName)
 	}
 
-	// for i, user := range userIDs {
-	// if i >= MAX_RAID_PARTICIPANTS {
-	// break
-	// }
-	//
-	// if user.Status == database.StatusStandby {
-	// break
-	// }
-	//
-	// // NOTE: This should make use of a SQL Statement instead of multiple writes.
-	// database.MarkUserRaidCompletion(user.ID, raidID)
-	// }
+	channelID := os.Getenv("RAID_CHANNEL_ID")
+	s.ChannelMessageDelete(channelID, *roster.MessageID)
+
+	response = new(fmt.Sprintf("The roster (%s) has been archived.", raidName))
+}
+
+func handlerSubCommand_rosterDelete(s *discordgo.Session, i *discordgo.InteractionCreate,
+	options map[string]*discordgo.ApplicationCommandInteractionDataOption) {
+
+	var response *string
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+	defer func() {
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: response,
+		})
+	}()
+
+	raidName := options["raid"].StringValue()
+
+	roster, err := database.RosterQueryRowFromRaidName(raidName)
+	if err != nil {
+		log.Println(err)
+		response = new(fmt.Sprintf("No active roster exists for the **%s** raid.", raidName))
+		return
+	}
+
+	if i.Member.User.ID != roster.AuthorID {
+		response = new("You don't have permission to make this change. Only the **roster creator** can mark a raid as completed.")
+		return
+	}
+
+	// NOTE: We aren't checking if there are additional users.
+
+	database.RosterArchive(roster.ID)
 
 	channelID := os.Getenv("RAID_CHANNEL_ID")
-	s.ChannelMessageDelete(channelID, *rosterDbEntry.MessageID)
+	s.ChannelMessageDelete(channelID, *roster.MessageID)
 
-	response = new(fmt.Sprintf("The roster (%s) has been archived.", raidID))
+	response = new(fmt.Sprintf("The roster (%s) has been deleted.", raidName))
 }
 
 func handlerCommand_guardian(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -452,6 +471,8 @@ func handlerCommand_guardian(s *discordgo.Session, i *discordgo.InteractionCreat
 }
 
 func handlerCommand_rotation(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// NOTE: This has yet to be implemented.
+
 	fmt.Println("rotation")
 }
 
